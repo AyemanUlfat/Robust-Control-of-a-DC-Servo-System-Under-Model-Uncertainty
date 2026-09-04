@@ -1,0 +1,66 @@
+# Default simulation and controller configuration
+# Robust Control of a DC Servo System Under Model Uncertainty
+
+project:
+  name: "Robust Control of a DC Servo System Under Model Uncertainty"
+  author: "Ayeman Ulfat"
+  affiliation: "University West, Trollhättan, Sweden"
+  email: "ayul0001@student.hv.se"
+
+# Nominal second-order rigid-body plant
+# G_nom(s) = K / (s (J s + b)) = 100 / (s^2 + 10 s)
+plant:
+  K: 1.0                 # motor gain
+  J: 0.01                # inertia [kg.m^2]
+  b: 0.1                 # viscous friction [Nms/rad]
+  regularization_eps: 0.0  # set to 1.0e-6 only if mixsyn needs it
+
+# Unmodeled flexible mode (NOT used during controller design)
+resonance:
+  omega_r: 188.0         # rad/s  (~30 Hz)
+  zeta: 0.05             # lightly damped
+
+# PID designed on the nominal plant only
+pid:
+  Kp: 25.0
+  Ki: 120.0
+  Kd: 0.08
+  Tf: 0.01               # derivative filter time constant [s]
+
+# H-infinity inspired loop-shaping controller (report design)
+# C_robust(s) = 40 * (s+6)/(s+60) * (1 / (s/120 + 1))^2
+robust:
+  gain: 40.0
+  zero: 6.0
+  pole: 60.0
+  rolloff_omega: 120.0
+  rolloff_order: 2
+
+# Optional mixed-sensitivity weights for formal mixsyn (Project_3.py)
+hinfinity_weights:
+  W1_num: [10.0, 1.0]
+  W1_den: [1.0, 0.1]
+  W2: 0.2
+  W3_omega: 200.0
+
+simulation:
+  t_end: 20.0
+  n_samples: 8001
+  step_amplitude: 1.0
+  disturbance_amplitude: 0.4
+  disturbance_start: 5.0
+  disturbance_end: 5.5
+  settling_band: 0.02     # ±2% of reference
+
+monte_carlo:
+  n_trials: 1000
+  k_variation: 0.20       # ±20% on K
+  j_variation: 0.20       # ±20% on J
+  b_fixed: true
+  seed: 2
+  instability_error_limit: 0.5
+
+paths:
+  figures_dir: "data/results"
+  summary_csv: "data/results/performance_summary.csv"
+  monte_carlo_csv: "data/results/monte_carlo_summary.csv"
