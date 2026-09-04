@@ -1,0 +1,152 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 5,
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python",
+      "pygments_lexer": "ipython3"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "# PID vs H-infinity Inspired Control of a DC Servo\n",
+        "\n",
+        "This notebook follows the project **Robust Control of a DC Servo System Under Model Uncertainty**.\n",
+        "\n",
+        "Both controllers are designed on the nominal second-order plant only. They are then tested on the nominal model and on a plant that includes an unmodeled 30 Hz resonance."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "execution_count": null,
+      "outputs": [],
+      "source": [
+        "import sys\n",
+        "from pathlib import Path\n",
+        "\n",
+        "import matplotlib.pyplot as plt\n",
+        "import pandas as pd\n",
+        "\n",
+        "ROOT = Path.cwd().resolve().parent\n",
+        "if str(ROOT) not in sys.path:\n",
+        "    sys.path.insert(0, str(ROOT))\n",
+        "\n",
+        "from src.controllers import build_pid, build_robust\n",
+        "from src.io_utils import load_config\n",
+        "from src.metrics import calc_metrics\n",
+        "from src.plants import build_nominal_plant, build_real_plant\n",
+        "from src.plot_results import plot_comparison\n",
+        "from src.simulation import reference_and_disturbance, simulate, time_vector\n",
+        "\n",
+        "cfg = load_config(ROOT / \"config\" / \"default.yaml\")\n",
+        "cfg"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Plants and controllers"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "execution_count": null,
+      "outputs": [],
+      "source": [
+        "G_nom = build_nominal_plant(cfg)\n",
+        "G_real = build_real_plant(cfg)\n",
+        "C_pid = build_pid(cfg)\n",
+        "C_rob = build_robust(cfg)\n",
+        "\n",
+        "print(\"Nominal plant:\\n\", G_nom)\n",
+        "print(\"\\nReal plant:\\n\", G_real)\n",
+        "print(\"\\nPID:\\n\", C_pid)\n",
+        "print(\"\\nRobust:\\n\", C_rob)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Time-domain simulation\n",
+        "\n",
+        "Unit step reference. Load-disturbance pulse of amplitude 0.4 from 5.0 s to 5.5 s."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "execution_count": null,
+      "outputs": [],
+      "source": [
+        "t = time_vector(cfg)\n",
+        "r, d = reference_and_disturbance(cfg, t)\n",
+        "\n",
+        "y_pid_nom = simulate(G_nom, C_pid, t, r, d)\n",
+        "y_rob_nom = simulate(G_nom, C_rob, t, r, d)\n",
+        "y_pid_real = simulate(G_real, C_pid, t, r, d)\n",
+        "y_rob_real = simulate(G_real, C_rob, t, r, d)\n",
+        "\n",
+        "band = cfg[\"simulation\"][\"settling_band\"]\n",
+        "ref = cfg[\"simulation\"][\"step_amplitude\"]\n",
+        "\n",
+        "rows = []\n",
+        "for plant, name, y in [\n",
+        "    (\"Nominal\", \"PID\", y_pid_nom),\n",
+        "    (\"Nominal\", \"Robust\", y_rob_nom),\n",
+        "    (\"Real (Resonance)\", \"PID\", y_pid_real),\n",
+        "    (\"Real (Resonance)\", \"Robust\", y_rob_real),\n",
+        "]:\n",
+        "    settling, overshoot, iae = calc_metrics(y, t, ref, band)\n",
+        "    rows.append({\"Plant\": plant, \"Controller\": name, \"Settling Time (s)\": settling, \"Overshoot (%)\": overshoot, \"IAE\": iae})\n",
+        "\n",
+        "summary = pd.DataFrame(rows).round(3)\n",
+        "summary"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## Comparison plots"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "execution_count": null,
+      "outputs": [],
+      "source": [
+        "out = ROOT / \"data\" / \"results\" / \"notebook_nominal_vs_resonance.png\"\n",
+        "fig = plot_comparison(\n",
+        "    t, r, y_pid_nom, y_rob_nom, y_pid_real, y_rob_real,\n",
+        "    G_real, C_pid, C_rob, cfg, str(out),\n",
+        ")\n",
+        "plt.show()\n",
+        "print(\"Saved\", out)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "## How to read the result\n",
+        "\n",
+        "- **Nominal plant:** both controllers track the step and reject the pulse. PID is more aggressive (higher overshoot).\n",
+        "- **Real plant:** PID keeps enough gain near 30 Hz to excite the hidden resonance. The robust controller rolls off before that frequency and damps the ringing.\n",
+        "- Monte Carlo over ±20% \(K\) and \(J\) is in `src/monte_carlo.py` and `python src/run_comparison.py`."
+      ]
+    }
+  ]
+}
