@@ -1,7 +1,5 @@
 # Robust-Control-of-a-DC-Servo-System-Under-Model-Uncertainty
 
-# Robust Control of a DC Servo System Under Model Uncertainty
-
 A comparison between **PID** and an **H-infinity inspired** loop-shaping controller for a DC servo position loop.
 
 Author: **Ayeman Ulfat**  
