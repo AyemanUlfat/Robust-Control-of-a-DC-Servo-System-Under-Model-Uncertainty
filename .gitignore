@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+.DS_Store
+*.egg-info/
+build/
+dist/
+data/results/*.png
+data/results/*Summary.csv
+!data/results/report_monte_carlo_means.csv
+!data/results/.gitkeep
